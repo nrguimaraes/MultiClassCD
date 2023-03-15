@@ -20,6 +20,7 @@ from deslib.static.oracle import Oracle
 # sklearn and numpy imports
 
 import numpy as np
+import pandas as pd
 from sklearn.ensemble import BaggingClassifier
 from sklearn.model_selection import train_test_split
 
@@ -28,6 +29,7 @@ from sklearn.model_selection import train_test_split
 
 from sklearn.tree import DecisionTreeClassifier
 
+desMethdNames = ["RANK", "OLA", "LCA", "DESKNN","KNORRAE","KNORRAU","KNOP","METADES","ORACLE"]
 
 rng = np.random.RandomState(1)
 baseClassifiers = BaggingClassifier(base_estimator=DecisionTreeClassifier(),
@@ -35,14 +37,7 @@ baseClassifiers = BaggingClassifier(base_estimator=DecisionTreeClassifier(),
                                     random_state=rng)
 
 
-def dynamic(model_name, X, y):
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25,
-                                                        random_state=rng)
-
-    X_train, X_dsel, y_train, y_dsel = train_test_split(X_train, y_train,
-                                                        test_size=0.50,
-                                                        random_state=rng)
+def dynamic(model_name, X_train, y_train,X_dsel,y_dsel):
 
     baseClassifiers.fit(X_train,y_train)
 
@@ -70,14 +65,75 @@ def dynamic(model_name, X, y):
     elif model_name == "METADES":
         method = METADES(pool_classifiers=baseClassifiers, random_state=rng)
 
-    elif model_name == "Oracle":
+    elif model_name == "ORACLE":
         method = Oracle(pool_classifiers=baseClassifiers)
     else:
         print("No valid method selected")
         return
 
-    method.fit(X_dsel, y_dsel)
+    return method.fit(X_dsel, y_dsel)
 
-    print("Classification accuracy {} = {}".format(model_name, method.score(X_test, y_test)))
+def methodMetrics(method,X_test,y_test,metric,methodName):
 
+    print(methodName)
+    if(metric=="acc" or metric=="accuracy"):
+        print("Classification accuracy {} = {}".format(methodName, method.score(X_test, y_test)))
+
+def DES(configArgs,currentArg):
+    if currentArg == 0:
+        fileWithData = input("Type the name of the file to use from the Dynamic/Test folder, (.csv can be ommitted)")
+    else:
+        fileWithData = configArgs[currentArg]
+
+    if not (fileWithData.endswith('.csv')):
+        fileWithData += '.csv'
+    fileWithData = "Dynamic/Test/" + fileWithData
+    try:
+        data = pd.read_csv(fileWithData)
+        X = data.iloc[:, :-1]
+        y = data.iloc[:, -1]
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25,
+                                                            random_state=rng)
+
+        X_train, X_dsel, y_train, y_dsel = train_test_split(X_train, y_train,
+                                                            test_size=0.50,
+                                                            random_state=rng)
+        inp_des = "1"
+        currentArg += 1
+    except:
+        print("Failed to read file " + fileWithData)
+        return
+    if inp_des == "1":
+        if currentArg == 0:
+            desMethod = input(
+                "Input one of the following methods (with same capitalizations) or the word all:\n\nBaselines: RANK, OLA, LCA, DESKNN\nSoA: KNORRAE,KNORRAU,KNOP,METADES,Oracle")
+        else:
+            desMethod = configArgs[currentArg]
+            currentArg+=1
+
+        desMthds = list()
+        if desMethod.lower() == "all":
+            for desMethod in desMethdNames:
+                desMthds.append(dynamic(desMethod, X_train, y_train,X_dsel,y_dsel))
+            desMethod = desMethdNames
+        else:
+            desMthds.append(dynamic(desMethod.upper(), X_train, y_train,X_dsel,y_dsel))
+
+
+
+        if currentArg == 0:
+            metric = input(
+                "Input one of the following evaluation metrics:\n Accuracy (Acc) ")
+        else:
+            metric = configArgs[currentArg]
+            currentArg+=1
+        counter = 0
+        for methods in desMthds:
+            metodo = desMethod
+            if desMthds.__len__()>1:
+                metodo = desMethod[counter]
+            if methods is not None:
+                methodMetrics(methods,X_test,y_test,metric,metodo)
+            counter+=1
 

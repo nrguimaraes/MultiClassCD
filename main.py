@@ -9,7 +9,7 @@ import argparse
 import sys
 
 sys.path.insert(0, "Dynamic")
-from Dynamic.dynamic import dynamic
+from Dynamic.dynamic import DES
 
 warnings.filterwarnings("ignore")
 
@@ -26,29 +26,30 @@ method = {
     "des": "1"
 }
 
-desMethds = ["RANK", "OLA", "LCA", "DESKNN","KNORRAE","KNORRAU","KNOP","METADES","Oracle"]
+
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--string')
+parser.add_argument('--config')
 
-# Press the green button in the gutter to run the script.
+#function to read the config file and return its configs
+def readConfigFile(filename):
+    configArgs=list()
+    if not (filename.endswith('.txt')):
+        filename += '.txt'
+    f = open("Configs/" + filename, "r")
+    for line in f:
+        configArgs.append(line.lower().strip())
+    return configArgs
+
+
+
 if __name__ == '__main__':
    # read config file if there is an argument mentioning one
    arg = parser.parse_args()
-   configArgs = list()
+   configArgs =list()
+   if arg.config is not None:
+        configArgs = readConfigFile(arg.config)
    currentArg = 0
-   if arg.string is not None:
-      f = open("Configs/"+arg.string,"r")
-
-      for line in f:
-          configArgs.append(line.lower().strip())
-
-
-
-
-   #read the config file and save the arguments
-
-
 
    loopin=0
    while loopin==0 and currentArg==0:
@@ -61,33 +62,8 @@ if __name__ == '__main__':
         if inp=="0":
             loopin=1
         elif inp=="1":
-            if currentArg==0:
-                fileWithData = input("Type the name of the file to use from the Dynamic/Test folder, (.csv can be ommitted)")
-            else :
-                fileWithData = configArgs[currentArg]
+            DES(configArgs,currentArg)
+            currentArg+=1
 
-            if not(fileWithData.endswith('.csv')) :
-                fileWithData += '.csv'
-            fileWithData = "Dynamic/Test/" + fileWithData
-            try:
-                data = pd.read_csv(fileWithData)
-                X = data.iloc[:,:-1]
-                y = data.iloc[:,-1]
-                inp_des = "1"
-                currentArg +=1
-            except:
-                print("Failed to read file "+fileWithData)
-                inp_des = "0"
-            if inp_des == "1":
-                if currentArg == 0:
-                    desMethod = input("Input one of the following methods (with same capitalizations) or the word all:\n\nBaselines: RANK, OLA, LCA, DESKNN\nSoA: KNORRAE,KNORRAU,KNOP,METADES,Oracle")
-                else:
-                    desMethod = configArgs[currentArg]
-
-                if desMethod.lower() =="all":
-                    for desMethod in desMethds:
-                        dynamic(desMethod, X, y)
-                else:
-                    dynamic(desMethod,X,y)
         if  currentArg!=0:
             loopin=1
