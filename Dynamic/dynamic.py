@@ -71,7 +71,8 @@ def dynamic(model_name, X_train, y_train,X_dsel,y_dsel):
         print("No valid method selected")
         return
 
-    return method.fit(X_dsel, y_dsel)
+    return method
+#.fit(X_dsel, y_dsel)
 
 def methodMetrics(method,X_test,y_test,metric,methodName):
 
