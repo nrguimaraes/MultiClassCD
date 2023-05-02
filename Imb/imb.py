@@ -8,8 +8,13 @@ import pandas as pd
 def imb(methodName,model,classNames):
     dic = {}
     size = 1 / len(classNames)
+    a = list()
     for classe in classNames:
-        dic[classe] = size
+        dic[classe] = round(size,2)
+        a.append(round(size,2))
+    if sum(a)<1:
+        a = 1-sum(a)
+        dic[list(classNames)[1]]= dic[list(classNames)[1]]+a
     methodName=methodName.upper()
     if methodName=="ROS":
         return imblearn.RandomOverSampler(model, desired_dist=dic, seed=1)

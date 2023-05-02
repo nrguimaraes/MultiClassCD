@@ -17,6 +17,4 @@ def OneVo(test):
     ovo = multiclass.OneVsOneClassifier(test)
     model = scaler | ovo
 
-    metric = metrics.MacroF1()
-
-    evaluate.progressive_val_score(dataset, model, metric)
+    return model

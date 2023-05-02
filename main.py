@@ -59,6 +59,11 @@ data = pd.read_csv(fileWithData)
 X = data.iloc[:, :-1]
 y = data.iloc[:, -1]
 
+import imblearn
+
+oversample = imblearn.over_sampling.SMOTE()
+X, y = oversample.fit_resample(X, y)
+
 from sklearn.model_selection import train_test_split
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25,
                                                             random_state=rng)
@@ -69,19 +74,41 @@ X_train, X_dsel, y_train, y_dsel = train_test_split(X_train, y_train,
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25,
                                                             random_state=rng)
+from river import linear_model
 
+test = linear_model.LogisticRegression()
 
+kekwait = OneVo(test)
 
-kekwait = imb("ROS",dynamic("OLA", X_train, y_train,X_dsel,y_dsel),set(y))
+models = [kekwait]
 
-from river import evaluate
+test = linear_model.BayesianLinearRegression()
+
+kekwait = OneVo(test)
+
+models.append(kekwait)
+
+tts = y_train.factorize()
+
+from river import model_selection
+
 from river import metrics
 
-metric = metrics.F1()
+metric = metrics.BalancedAccuracy()
+
+test = model_selection.GreedyRegressor(models,metric)
+
+for i in range(1,len(X_train)) :
+ test.learn_one(X_train.iloc[i,:].to_dict(),tts[0][i])
+
+test.best_model
+from river import evaluate
+
 
 dataset= np.append(X_train,y_train[:,None],axis=1)
 
-evaluate.progressive_val_score(dataset,kekwait,metric)
+#evaluate.progressive_val_score(dataset,kekwait,metric)
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config')
