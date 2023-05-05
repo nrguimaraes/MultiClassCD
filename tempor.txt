@@ -1,0 +1,74 @@
+predicted_y_4 = []
+global_y =[]
+for batchNum in range(1,10):
+    test4 = model_selection.GreedyRegressor(models, metric)
+
+    data = dataBatches[batchNum-1]
+    if batchNum==1:
+        y = data.iloc[:, 0]
+    else:
+        y=global_y
+    X = data.drop(0,axis=1)
+    tts = y.factorize()
+    print("Training...")
+
+    for i in range(1, len(X.iloc[:,0])):
+        test4.learn_one(X.iloc[i, :].to_dict(), tts[0][i])
+    
+
+    print("Predicting...")
+    predicted_y=[]
+    data = dataBatches[batchNum]
+    y = data.iloc[:, 0]
+    X = data.drop(0,axis=1)
+    for n in range(0,len(y)):
+        predicted_y.append(test4.predict_one(X.iloc[n,:]))
+    global_y=predicted_y
+    predicted_y_4.append(balanced_accuracy_score(y,predicted_y))
+
+
+test5 = model_selection.GreedyRegressor(models, metric)
+adwin = drift.ADWIN()
+predicted_y_5 = []
+global_y=[]
+for batchNum in range(1,10):
+    
+        
+    data = dataBatches[batchNum-1]
+    if batchNum==1:
+        y = data.iloc[:, 0]
+    else:
+        y=global_y
+    X = data.drop(0,axis=1)
+    tts = y.factorize()
+    
+    for val in X :
+        adwin.update(val)
+        if adwin.drift_detected and batchNum>1:
+            driftDetected = True
+    
+    if driftDetected:
+        print("Drift in batch"+batchNum)
+        test3 = model_selection.GreedyRegressor(models, metric)
+        for i in range(1, len(X.iloc[:,0])):
+            test3.learn_one(X.iloc[i, :].to_dict(), tts[0][i])
+    
+
+    print("Predicting...")
+    predicted_y=[]
+    data = dataBatches[batchNum]
+    y = data.iloc[:, 0]
+    X = data.drop(0,axis=1)
+    for n in range(0,len(y)):
+        predicted_y.append(test3.predict_one(X.iloc[n,:]))
+    predicted_y_3.append(balanced_accuracy_score(y,predicted_y))
+    global_y=predicted_y
+    driftDetected = False
+
+
+
+
+
+
+fig = px.line(y=[predicted_y_1,predicted_y_4,predicted_y_5], title='')
+fig.show()
