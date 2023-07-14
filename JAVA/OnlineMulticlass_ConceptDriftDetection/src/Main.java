@@ -16,6 +16,10 @@ import weka.core.Instances;
 import weka.core.Utils;
 import weka.core.converters.ConverterUtils.DataSource;
 
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 public class Main {
 
 	/**
@@ -51,201 +55,270 @@ public class Main {
 	public static int[] numDrifts; // number of detected drifts at each run
 	public static int[][] driftLocations;//time steps of where drift is detected at each run
 
-
+	private static final SimpleDateFormat sdf3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 	public static void main(String[] args) throws Exception {
-		// TODO Auto-generated method stub
-		int window_size = 200;
-		String folder = "C:\\Users\\joseg\\Desktop\\MCCD\\Real-World Data\\";
-		String datafile = folder + "Gas Sensor Array Drift Data\\batches1-4_8-10.arff";
-		String resultfile = folder + "Result\\ChangingEveryWindowPasses_HYBRID_EWAUC_window200_lastbatchp_average_perrun.txt";
-		String sampleMode = "HYBRID";
+		// TODO Auto-generated method study
+
+
+		int window_sizes[] = new int[]{
+				50,
+				200,
+				100};
+		int window_size = window_sizes[0];
 		int whichDDM = 2;//1: PMAUC-PH, 2: EWAUC-PH, 3: WAUC-PH and 4: GM-PH; other numbers: no drift detection.
-		int numRun = 100;
 		int usedMetric = 2;
-		
-		//ins: just for setting data properties and initialising performance arrays
-		System.out.println(datafile);
-		DataSource source = new DataSource(datafile);
-		Instances ins = source.getDataSet();
-		if (ins.classIndex() == -1)
-			ins.setClassIndex(ins.numAttributes() - 1);
-		int numTimeStep = ins.numInstances();   
-		numClasses = ins.numClasses(); 
-		Instance fistInst = ins.instance(0);// get the first instance of the data stream, for initializing MLP
-		
-		//initialise performance metrics
-		classRecall_window = new double[numTimeStep][numClasses][numRun];
-	    gmean_window = new double[numTimeStep][numRun];
-	    PMAUC_window = new double[numTimeStep][numRun];
-	    WAUC_window = new double[numTimeStep][numRun];
-	    EWAUC_window = new double[numTimeStep][numRun];
-		MAUC = new double[numRun];
+		int numRun = 25;
 
-		gmean_window1 = new double[numTimeStep][numRun];
-		PMAUC_window1 = new double[numTimeStep][numRun];
-		WAUC_window1 = new double[numTimeStep][numRun];
-		EWAUC_window1 = new double[numTimeStep][numRun];
+		String[] folder = new String[]{
+				"C:\\Users\\joseg\\Desktop\\MCCD\\Data Generation\\IR3to7\\",
+				"C:\\Users\\joseg\\Desktop\\MCCD\\Data Generation\\IR1to9\\",
+				"C:\\Users\\joseg\\Desktop\\MCCD\\Real-World Data\\Gas Sensor Array Drift Data\\"
+		};
+		String[] allFiles = new String[]{
+				"Gaussian_12Min12Maj_Severity0.5_ir3to7_Random.arff",
+				"Gaussian_12Min12Maj_Severity1_ir3to7_Random.arff",
+				"Gaussian_12Min12Maj_Severity0.3_ir3to7_Random.arff",
+				"Gaussian_12Min12Maj_Severity0.5_ir1to9_Random.arff",
+				"Gaussian_12Min12Maj_Severity1_ir1to9_Random.arff",
+				"Gaussian_12Min12Maj_Severity0.1_ir1to9_Random.arff",
+				"batches1-4_8-10.arff",
+				"batches.arff"
+		};
+		String[] toWrite = new String[]{
+				"_12_12_ir37_sev_0.5.txt",
+				"_12_12_ir37_sev_1.txt",
+				"_12_12_ir37_sev_0.3.txt",
+				"_12_12_ir19_sev_0.5.txt",
+				"_12_12_ir19_sev_1.txt",
+				"_12_12_ir19_sev_0.1.txt",
+				"_batches1-4_8-10.txt",
+				"_batches.txt"
+		};
+		int[] fileFolderIndex = new int[]{0,0,0,1,1,1,2,2};
 
-		gmean_window2 = new double[numTimeStep][numRun];
-		PMAUC_window2 = new double[numTimeStep][numRun];
-		WAUC_window2  = new double[numTimeStep][numRun];
-		EWAUC_window2 = new double[numTimeStep][numRun];
-		
-		//initialise variables for concept drift dection
-		numDrifts = new int[numRun];
-	    driftLocations = new int[numRun][PHT.MAX_DRIFTNUM];	    
-	    for(int i = 0; i < numRun; i++) {
-	    	for(int j = 0; j < PHT.MAX_DRIFTNUM; j++)
-	    		driftLocations[i][j] = -1;
-	    }
-	    
-		
-		for(int run = 0; run < numRun; run++){
-			System.out.println("Run " + (run+1));
+		String[] sampleModes = new String[]{//"MOOB",
+				//"MUOB",
+				//"HYBRID",
+				//"EVERY",
+				"MOOB_delayed",
+				"MUOB_delayed"};
 
-			// Obtain data stream
-			ArffFileStream data = new ArffFileStream(datafile,-1);
-			data.prepareForUse();
+		int numOfFiles = allFiles.length;
+		int numOfModes = sampleModes.length;
+		int numOfWindowSizes = window_sizes.length;
 
-			classPercentage = new double[numTimeStep][numClasses];
-			numInstances = new int[numClasses];
-			currentClassRecall_decay = new double[numClasses];
+		for(int xaxax=0;xaxax<numOfWindowSizes;xaxax++) {
+			window_size = window_sizes[xaxax];
 
-			// local variables
-			double delta1 = 0.4;
-			double delta2 = 0.3;
-			double sizedecayfactor = 0.9;//theta
-			double recalldecayfactor = 0.9;//theta'
-			int numSamples_Total = 0; // number of processed samples from the beginning
-			boolean isCorrect = true;
-			int predictedLabel, realLabel;
+			for (int xax = 0; xax < numOfFiles; xax++) {
+				String datafile = folder[fileFolderIndex[xax]] + allFiles[xax];
+				for (int xaxa = 0; xaxa < numOfModes; xaxa++) {
+					String sampleMode = sampleModes[xaxa];
 
-			// initialize online models
-			OzaBag model = (OzaBag) initializeOnlineModel(run, data, fistInst);
-			OzaBag model2 = (OzaBag) initializeOnlineModel(run, data, fistInst);
-			
-			// initialise drift detection
-			PHT phtdrifter = new PHT(ins);
-			//PageHinkleyDM phtdrifter2 = new PageHinkleyDM();//this is equivalent to PHT 
+					String resultfile = folder[fileFolderIndex[xax]] + "Results\\windowBasedClassPerc\\window" + String.valueOf(window_size) + "newhybrid\\" + sampleMode + toWrite[xax];
 
-			// choose an evaluator for performance assessment
-			ClassificationPerformanceEvaluator evaluator = new WindowClassificationPerformanceEvaluator();
-			
-			// initialize the PMAUC (2 of em) calculation class
-			AUCClassificationPerformanceEvaluator_mclass pmauc = new AUCClassificationPerformanceEvaluator_mclass();
-			pmauc.numClasses = numClasses;
-			pmauc.widthOption = window_size;
-			pmauc.aucEstimator = pmauc.new Estimator(pmauc.widthOption);
+					//ins: just for setting data properties and initialising performance arrays
 
-			AUCClassificationPerformanceEvaluator_mclass pmauc1 = new AUCClassificationPerformanceEvaluator_mclass();
-			pmauc1.numClasses = numClasses;
-			pmauc1.widthOption = window_size;
-			pmauc1.aucEstimator = pmauc1.new Estimator(pmauc1.widthOption);
+					DataSource source = new DataSource(datafile);
+					Instances ins = source.getDataSet();
+					if (ins.classIndex() == -1)
+						ins.setClassIndex(ins.numAttributes() - 1);
+					int numTimeStep = ins.numInstances();
+					numClasses = ins.numClasses();
+					Instance fistInst = ins.instance(0);// get the first instance of the data stream, for initializing MLP
 
-			AUCClassificationPerformanceEvaluator_mclass pmauc2 = new AUCClassificationPerformanceEvaluator_mclass();
-			pmauc2.numClasses = numClasses;
-			pmauc2.widthOption = window_size;
-			pmauc2.aucEstimator = pmauc2.new Estimator(pmauc2.widthOption);
+					//initialise performance metrics
+					classRecall_window = new double[numTimeStep][numClasses][numRun];
+					gmean_window = new double[numTimeStep][numRun];
+					PMAUC_window = new double[numTimeStep][numRun];
+					WAUC_window = new double[numTimeStep][numRun];
+					EWAUC_window = new double[numTimeStep][numRun];
+					MAUC = new double[numRun];
 
-			int end_of_last_window = window_size;
-			int justChanged=0; // variable for testing purposes
-			// online training loop: test the current instance first, then used to update the learner (prequential)
-			while(data.hasMoreInstances()){
+					gmean_window1 = new double[numTimeStep][numRun];
+					PMAUC_window1 = new double[numTimeStep][numRun];
+					WAUC_window1 = new double[numTimeStep][numRun];
+					EWAUC_window1 = new double[numTimeStep][numRun];
 
-				Instance trainInst = data.nextInstance();
+					gmean_window2 = new double[numTimeStep][numRun];
+					PMAUC_window2 = new double[numTimeStep][numRun];
+					WAUC_window2 = new double[numTimeStep][numRun];
+					EWAUC_window2 = new double[numTimeStep][numRun];
 
-				double[] prediction = model.getVotesForInstance(trainInst);
-				if(end_of_last_window>window_size) {
-
-					int last_window_choice = get_last_window_choice(end_of_last_window, window_size, usedMetric, run);
-					if(justChanged==1) {
-						//System.out.println(last_window_choice);
-						justChanged=0;
+					//initialise variables for concept drift dection
+					numDrifts = new int[numRun];
+					driftLocations = new int[numRun][PHT.MAX_DRIFTNUM];
+					for (int i = 0; i < numRun; i++) {
+						for (int j = 0; j < PHT.MAX_DRIFTNUM; j++)
+							driftLocations[i][j] = -1;
 					}
-					if (last_window_choice == 2)
-						prediction = model2.getVotesForInstance(trainInst);
-				}
-				evaluator.addResult(trainInst, prediction);
-				pmauc.addResult(trainInst,prediction);
-				predictedLabel = Utils.maxIndex(prediction);
-				
-				prediction = model.getVotesForInstance(trainInst);
-				pmauc1.addResult(trainInst,prediction);
 
-				prediction = model2.getVotesForInstance(trainInst);
-				pmauc2.addResult(trainInst,prediction);
+					int lastEntryNum = 0;
+					for (int run = 0; run < numRun; run++) {
+						Timestamp timestamp = new Timestamp(System.currentTimeMillis());
 
-				realLabel = (int)trainInst.classValue();
-				numInstances[realLabel]++;
-				if(predictedLabel==realLabel) isCorrect = true;
-				else isCorrect = false;
-				numSamples_Total ++;
+						lastEntryNum = 0;
+						System.out.println("Window Size - " +String.valueOf(window_size));
+						System.out.println("File - "+datafile);
+						System.out.println("Method - "+sampleMode);
+						System.out.println("Run " + (run + 1));
+						System.out.println(sdf3.format(timestamp));
+
+						// Obtain data stream
+						ArffFileStream data = new ArffFileStream(datafile, -1);
+						data.prepareForUse();
+
+						classPercentage = new double[numTimeStep][numClasses];
+						double classPercentageAtWindow[] = new double[numClasses];
+						numInstances = new int[numClasses];
+						currentClassRecall_decay = new double[numClasses];
+
+						// local variables
+						double delta1 = 0.4;
+						double delta2 = 0.3;
+						double sizedecayfactor = 0.9;//theta
+						double recalldecayfactor = 0.9;//theta'
+						int numSamples_Total = 0; // number of processed samples from the beginning
+						boolean isCorrect = true;
+						int predictedLabel, realLabel;
+
+						// initialize online models
+						OzaBag model = (OzaBag) initializeOnlineModel(run, data, fistInst);
+						OzaBag model2 = (OzaBag) initializeOnlineModel(run, data, fistInst);
+
+						// initialise drift detection
+						PHT phtdrifter = new PHT(ins);
+						//PageHinkleyDM phtdrifter2 = new PageHinkleyDM();//this is equivalent to PHT
+
+						// choose an evaluator for performance assessment
+						ClassificationPerformanceEvaluator evaluator = new WindowClassificationPerformanceEvaluator();
+
+						// initialize the PMAUC (2 of em) calculation class
+						AUCClassificationPerformanceEvaluator_mclass pmauc = new AUCClassificationPerformanceEvaluator_mclass();
+						pmauc.numClasses = numClasses;
+						pmauc.widthOption = window_size;
+						pmauc.aucEstimator = pmauc.new Estimator(pmauc.widthOption);
+
+						AUCClassificationPerformanceEvaluator_mclass pmauc1 = new AUCClassificationPerformanceEvaluator_mclass();
+						pmauc1.numClasses = numClasses;
+						pmauc1.widthOption = window_size;
+						pmauc1.aucEstimator = pmauc1.new Estimator(pmauc1.widthOption);
+
+						AUCClassificationPerformanceEvaluator_mclass pmauc2 = new AUCClassificationPerformanceEvaluator_mclass();
+						pmauc2.numClasses = numClasses;
+						pmauc2.widthOption = window_size;
+						pmauc2.aucEstimator = pmauc2.new Estimator(pmauc2.widthOption);
+
+						int end_of_last_window = 0;
+						int occuredDrifts = 0;
+
+						int justChanged = 0; // variable for testing purposes
+						// online training loop: test the current instance first, then used to update the learner (prequential)
+						while (data.hasMoreInstances()) {
+
+							Instance trainInst = data.nextInstance();
+
+							double[] prediction = model.getVotesForInstance(trainInst);
+							if (end_of_last_window > window_size) {
+								lastEntryNum++;
+								int last_window_choice = 0;
+								if (sampleMode.equals("HYBRID")) {
+									last_window_choice = get_last_window_choice(end_of_last_window, window_size, usedMetric, run);
+								} else if (lastEntryNum > window_size) {
+									last_window_choice = get_last_window_choice(lastEntryNum, window_size, usedMetric, run);
+								}
+								if (last_window_choice == 2 && (sampleMode.equals("HYBRID") || sampleMode.equals("EVERY")))
+									prediction = model2.getVotesForInstance(trainInst);
+							}
+							evaluator.addResult(trainInst, prediction);
+							pmauc.addResult(trainInst, prediction);
+							predictedLabel = Utils.maxIndex(prediction);
+
+							prediction = model.getVotesForInstance(trainInst);
+							pmauc1.addResult(trainInst, prediction);
+
+							prediction = model2.getVotesForInstance(trainInst);
+							pmauc2.addResult(trainInst, prediction);
+
+							realLabel = (int) trainInst.classValue();
+							numInstances[realLabel]++;
+							if (predictedLabel == realLabel) isCorrect = true;
+							else isCorrect = false;
+							numSamples_Total++;
 /*				for(int i = 0; i < prediction.length; i++) {
 					System.out.print(prediction[i] + ", ");
 				}
 				System.out.println(isCorrect);*/
 
-				// update class percentages
-				updateClassPercentage(realLabel, numSamples_Total, sizedecayfactor);
-
-				// train online model
-				if(sampleMode.equals("MOOB"))
-					MOOB_adaptive(trainInst, model, numSamples_Total);
-				else if(sampleMode.equals("MUOB"))
-					MUOB_adaptive(trainInst, model, numSamples_Total);
-				else if(sampleMode.equals("HYBRID")){
-					MOOB_adaptive(trainInst, model, numSamples_Total);
-					MUOB_adaptive(trainInst, model2, numSamples_Total);
-				}
-				else
-					model.trainOnInstance(trainInst);
+							// update class percentages
+							updateClassPercentage(realLabel, numSamples_Total, sizedecayfactor);
+							if (numSamples_Total < window_size)
+								System.arraycopy(classPercentage[numSamples_Total - 1], 0, classPercentageAtWindow, 0, numClasses);
 
 
-				// update time decayed recall
-				updateDecayRecall(realLabel, isCorrect, recalldecayfactor);	
-				// class imbalance detection
-				imbalanceStatus(delta1, delta2, numSamples_Total);
-				
-				// Output metrics
-				double pm = pmauc.aucEstimator.getPMAUC();
-				double gm = pmauc.aucEstimator.getGmean();
-				double wa = pmauc.aucEstimator.getWeightedAUC();
-				double ewa = pmauc.aucEstimator.getEqualWeightedAUC();
-				PMAUC_window[numSamples_Total-1][run] = pm;
-				gmean_window[numSamples_Total-1][run] = gm;
-				WAUC_window[numSamples_Total-1][run] = wa;
-				EWAUC_window[numSamples_Total-1][run] = ewa;
+							// train online model
+							if (sampleMode.equals("MOOB"))
+								MOOB_adaptive(trainInst, model, numSamples_Total);
+							else if (sampleMode.equals("MUOB"))
+								MUOB_adaptive(trainInst, model, numSamples_Total);
+							else if (sampleMode.equals("EVERY")) {
+								MOOB_adaptive(trainInst, model, numSamples_Total);
+								MUOB_adaptive(trainInst, model2, numSamples_Total);
+							} else if (sampleMode.equals("HYBRID")) {
+								MOOB_adaptive_hybrid(trainInst, model, numSamples_Total, classPercentageAtWindow);
+								MUOB_adaptive_hybrid(trainInst, model2, numSamples_Total, classPercentageAtWindow);
+							} else 	if(sampleMode.equals("MOOB_delayed")){
+									MOOB_adaptive_hybrid(trainInst, model, numSamples_Total, classPercentageAtWindow);
+							} else 	if(sampleMode.equals("MUOB_delayed")) {
+								MUOB_adaptive_hybrid(trainInst, model, numSamples_Total, classPercentageAtWindow);
+							}else
+								model.trainOnInstance(trainInst);
 
-				pm = pmauc1.aucEstimator.getPMAUC();
-				gm = pmauc1.aucEstimator.getGmean();
-				wa = pmauc1.aucEstimator.getWeightedAUC();
-				ewa = pmauc1.aucEstimator.getEqualWeightedAUC();
-				PMAUC_window1[numSamples_Total-1][run] = pm;
-				gmean_window1[numSamples_Total-1][run] = gm;
-				WAUC_window1[numSamples_Total-1][run] = wa;
-				EWAUC_window1[numSamples_Total-1][run] = ewa;
 
-				pm = pmauc2.aucEstimator.getPMAUC();
-				gm = pmauc2.aucEstimator.getGmean();
-				wa = pmauc2.aucEstimator.getWeightedAUC();
-				ewa = pmauc2.aucEstimator.getEqualWeightedAUC();
-				PMAUC_window2[numSamples_Total-1][run] = pm;
-				gmean_window2[numSamples_Total-1][run] = gm;
-				WAUC_window2[numSamples_Total-1][run] = wa;
-				EWAUC_window2[numSamples_Total-1][run] = ewa;
+							// update time decayed recall
+							updateDecayRecall(realLabel, isCorrect, recalldecayfactor);
+							// class imbalance detection
+							imbalanceStatus(delta1, delta2, numSamples_Total);
 
-				for(int c = 0; c < numClasses; c++)
-					classRecall_window[numSamples_Total-1][c][run] = pmauc.aucEstimator.getRecall(c);
-				
-				//////////////////////Apply Drift detection method//////////////////////////
-				if(numSamples_Total>window_size) {
-					if(numSamples_Total%window_size==0)
-						end_of_last_window=numSamples_Total;
-					switch(whichDDM){
-					case 1:
-						applyPHT(model, phtdrifter, pmauc, trainInst, pm, numSamples_Total);
-						applyPHT(model2, phtdrifter, pmauc, trainInst, pm, numSamples_Total);
+							// Output metrics
+							double pm = pmauc.aucEstimator.getPMAUC();
+							double gm = pmauc.aucEstimator.getGmean();
+							double wa = pmauc.aucEstimator.getWeightedAUC();
+							double ewa = pmauc.aucEstimator.getEqualWeightedAUC();
+							PMAUC_window[numSamples_Total - 1][run] = pm;
+							gmean_window[numSamples_Total - 1][run] = gm;
+							WAUC_window[numSamples_Total - 1][run] = wa;
+							EWAUC_window[numSamples_Total - 1][run] = ewa;
+
+							pm = pmauc1.aucEstimator.getPMAUC();
+							gm = pmauc1.aucEstimator.getGmean();
+							wa = pmauc1.aucEstimator.getWeightedAUC();
+							ewa = pmauc1.aucEstimator.getEqualWeightedAUC();
+							PMAUC_window1[numSamples_Total - 1][run] = pm;
+							gmean_window1[numSamples_Total - 1][run] = gm;
+							WAUC_window1[numSamples_Total - 1][run] = wa;
+							EWAUC_window1[numSamples_Total - 1][run] = ewa;
+
+							pm = pmauc2.aucEstimator.getPMAUC();
+							gm = pmauc2.aucEstimator.getGmean();
+							wa = pmauc2.aucEstimator.getWeightedAUC();
+							ewa = pmauc2.aucEstimator.getEqualWeightedAUC();
+							PMAUC_window2[numSamples_Total - 1][run] = pm;
+							gmean_window2[numSamples_Total - 1][run] = gm;
+							WAUC_window2[numSamples_Total - 1][run] = wa;
+							EWAUC_window2[numSamples_Total - 1][run] = ewa;
+
+							for (int c = 0; c < numClasses; c++)
+								classRecall_window[numSamples_Total - 1][c][run] = pmauc.aucEstimator.getRecall(c);
+
+							//////////////////////Apply Drift detection method//////////////////////////
+							if (numSamples_Total > window_size) {
+
+								switch (whichDDM) {
+									case 1:
+										applyPHT(model, phtdrifter, pmauc, trainInst, pm, numSamples_Total);
+										applyPHT(model2, phtdrifter, pmauc, trainInst, pm, numSamples_Total);
 						/*
 						phtdrifter2.input(1-pm);
 						if (phtdrifter2.isChangeDetected) {
@@ -253,56 +326,77 @@ public class Main {
 							driftLocations[run][numDrifts[run]]=numSamples_Total;
 							numDrifts[run]++;
 						}*/
-						break;
-					case 2:
-						applyPHT(model, phtdrifter, pmauc, trainInst, ewa, numSamples_Total);
-						applyPHT(model2, phtdrifter, pmauc, trainInst, pm, numSamples_Total);
+										break;
+									case 2:
+										applyPHT(model, phtdrifter, pmauc, trainInst, ewa, numSamples_Total);
+										applyPHT(model2, phtdrifter, pmauc, trainInst, pm, numSamples_Total);
 						/*phtdrifter2.input(1-ewa);
 						if (phtdrifter2.isChangeDetected) {
 							model.resetLearning();
 							driftLocations[run][numDrifts[run]]=numSamples_Total;
 							numDrifts[run]++;
 						}*/
-						break;
-					case 3: 
-						applyPHT(model, phtdrifter, pmauc, trainInst, wa, numSamples_Total);
-						applyPHT(model2, phtdrifter, pmauc, trainInst, pm, numSamples_Total);
+										break;
+									case 3:
+										applyPHT(model, phtdrifter, pmauc, trainInst, wa, numSamples_Total);
+										applyPHT(model2, phtdrifter, pmauc, trainInst, pm, numSamples_Total);
 						/*phtdrifter2.input(1-wa);
 						if (phtdrifter2.isChangeDetected) {
 							model.resetLearning();
 							driftLocations[run][numDrifts[run]]=numSamples_Total;
 							numDrifts[run]++;
 						}*/
-						break;
-					case 4:
-						applyPHT(model, phtdrifter, pmauc, trainInst, gm, numSamples_Total);
-						applyPHT(model2, phtdrifter, pmauc, trainInst, pm, numSamples_Total);
+										break;
+									case 4:
+										applyPHT(model, phtdrifter, pmauc, trainInst, gm, numSamples_Total);
+										applyPHT(model2, phtdrifter, pmauc, trainInst, pm, numSamples_Total);
 						/*phtdrifter2.input(1-gm);
 						if (phtdrifter2.isChangeDetected) {
 							model.resetLearning();
 							driftLocations[run][numDrifts[run]]=numSamples_Total;
 							numDrifts[run]++;
 						}*/
-					default: break;
-					}
+									default:
+										break;
+								}
+								if (numSamples_Total > 2 * window_size)
+									System.arraycopy(classPercentage[numSamples_Total - window_size - 1], 0, classPercentageAtWindow, 0, numClasses);
+								if (sampleMode.equals("HYBRID")) {
+									if ((numSamples_Total - end_of_last_window) % window_size == 0) {
+										end_of_last_window = numSamples_Total;
+
+									}
+									if (phtdrifter.numDrift > occuredDrifts) {
+										occuredDrifts = phtdrifter.numDrift;
+										end_of_last_window = numSamples_Total;
+										System.out.println("drift\n");
+
+									}
+
+
+								} else
+									end_of_last_window = numSamples_Total;
+							}
+						}//while
+						numDrifts[run] = phtdrifter.numDrift;
+						driftLocations[run] = phtdrifter.driftLocation;
+						System.out.print(numDrifts[run] + "\t");
+						for (int j = 0; j < driftLocations[run].length; j++) {
+							if (driftLocations[run][j] != -1) System.out.print(driftLocations[run][j] + "\t");
+							else break;
+						}
+						System.out.println();
+						phtdrifter = null;
+						evaluator = null;
+
+					}//for numRun
+
+					System.out.println(average(numDrifts));
+					//printPerformance(resultfile,numTimeStep);
+					printPerformancePerRun(resultfile, numRun, lastEntryNum, window_size);
 				}
-			}//while
-			numDrifts[run] = phtdrifter.numDrift;
-			driftLocations[run] = phtdrifter.driftLocation;
-			System.out.print(numDrifts[run] + "\t");
-			for(int j = 0; j < driftLocations[run].length; j++){
-				if(driftLocations[run][j] != -1) System.out.print(driftLocations[run][j] + "\t");
-				else break;
 			}
-			System.out.println();
-			phtdrifter = null;
-			evaluator = null;
-			
-		}//for numRun
-		
-		System.out.println(average(numDrifts));
-		//printPerformance(resultfile,numTimeStep);
-		printPerformancePerRun(resultfile, numRun);
+		}
 	}
 
 	/**Initialize Online Bagging*/
@@ -331,6 +425,13 @@ public class Main {
 		model.trainOnInstanceImpl(currentInstance, (double)lambda*cp_max/classPercentage[numSamplesTotal-1][classLabel]);
 	}
 
+	public static void MOOB_adaptive_hybrid(Instance currentInstance, OzaBag model, int numSamplesTotal, double classPercAtWindow[]){
+		Integer classLabel = (int)currentInstance.classValue();
+		double lambda = 1.0;
+		int cp_max = Utils.maxIndex(classPercAtWindow);
+		model.trainOnInstanceImpl(currentInstance, (double)lambda*cp_max/classPercAtWindow[classLabel]);
+	}
+
 	// Multi-class Oversampling Online Bagging using fixed sampling rates
 	public static void MOOB_fix(Instance currentInstance, OzaBag model, int numSamplesTotal){
 		Integer classLabel = (int)currentInstance.classValue();
@@ -345,6 +446,17 @@ public class Main {
 		double lambda = 1.0;
 		int cp_min = Utils.minIndex(classPercentage[numSamplesTotal-1]);
 		double rate = (double)classPercentage[numSamplesTotal-1][cp_min]/classPercentage[numSamplesTotal-1][classLabel];
+		if(rate < 0.01)
+			model.trainOnInstanceImpl(currentInstance, (double)lambda*0.01);
+		else
+			model.trainOnInstanceImpl(currentInstance, (double)lambda*rate);
+	}
+
+	public static void MUOB_adaptive_hybrid(Instance currentInstance, OzaBag model, int numSamplesTotal, double classPercAtWindow[]){
+		Integer classLabel = (int)currentInstance.classValue();//the class label index
+		double lambda = 1.0;
+		int cp_min = Utils.minIndex(classPercAtWindow);
+		double rate = (double)classPercAtWindow[cp_min]/classPercAtWindow[classLabel];
 		if(rate < 0.01)
 			model.trainOnInstanceImpl(currentInstance, (double)lambda*0.01);
 		else
@@ -538,7 +650,7 @@ public class Main {
 	
 	//Instead print the average performance per time step, this function prints the average performance on the last batch of real-world data per run.
 	//It is for the wilcoxon sign rank test. 
-	public static void printPerformancePerRun(String filename, int numRun) throws IOException {
+	public static void printPerformancePerRun(String filename, int numRun,int lastEntry,int window_size) throws IOException {
 		BufferedWriter writer = new BufferedWriter(new FileWriter(filename));
 
 		/*Print out performance into the result file*/
@@ -549,10 +661,14 @@ public class Main {
 		writer.append("Mean performance on the last batch at each run \n");
 		writer.append("PMAUC, WAUC, EWAUC, G-mean \n");
 		for(int i = 0; i < numRun; i++) {
-			lastbatch_pmauc[i] = row_average(PMAUC_window, 3600, 5288, i);
-			lastbatch_wauc[i] = row_average(WAUC_window, 3600, 5288, i);
-			lastbatch_ewauc[i] = row_average(EWAUC_window, 3600, 5288, i);
-			lastbatch_gm[i] = row_average(gmean_window, 3600, 5288, i);
+			//lastbatch_pmauc[i] = row_average(PMAUC_window, 3600, 5288, i);
+			//lastbatch_wauc[i] = row_average(WAUC_window, 3600, 5288, i);
+			//lastbatch_ewauc[i] = row_average(EWAUC_window, 3600, 5288, i);
+			//lastbatch_gm[i] = row_average(gmean_window, 3600, 5288, i);
+			lastbatch_pmauc[i] = row_average(PMAUC_window, lastEntry-window_size-1, lastEntry-1, i);
+			lastbatch_wauc[i] = row_average(WAUC_window, lastEntry-window_size-1, lastEntry-1, i);
+			lastbatch_ewauc[i] = row_average(EWAUC_window, lastEntry-window_size-1, lastEntry-1, i);
+			lastbatch_gm[i] = row_average(gmean_window, lastEntry-window_size-1, lastEntry-1, i);
 			writer.append(lastbatch_pmauc[i] + ", " + lastbatch_wauc[i] + ", "+ lastbatch_ewauc[i] + ", "+ lastbatch_gm[i] + ", " + 
 //					Utils.mean(classRecall_window[i][0]) + ", " + Utils.mean(classRecall_window[i][1]) + ", "+ 
 //					Utils.mean(classRecall_window[i][2]) + ", "+ Utils.mean(classRecall_window[i][3]) + 
