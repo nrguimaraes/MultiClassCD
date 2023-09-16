@@ -19,6 +19,8 @@ import weka.core.converters.ConverterUtils.DataSource;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Collections;
+import java.util.Arrays;
 
 public class Main {
 
@@ -59,7 +61,7 @@ public class Main {
 
 	public static void main(String[] args) throws Exception {
 		// TODO Auto-generated method study
-
+		Timestamp start_time = new Timestamp(System.currentTimeMillis());
 
 		int window_sizes[] = new int[]{
 				50,
@@ -68,41 +70,65 @@ public class Main {
 		int window_size = window_sizes[0];
 		int whichDDM = 2;//1: PMAUC-PH, 2: EWAUC-PH, 3: WAUC-PH and 4: GM-PH; other numbers: no drift detection.
 		int usedMetric = 2;
-		int numRun = 25;
+		int numRun = 50;
 
 		String[] folder = new String[]{
 				"C:\\Users\\joseg\\Desktop\\MCCD\\Data Generation\\IR3to7\\",
 				"C:\\Users\\joseg\\Desktop\\MCCD\\Data Generation\\IR1to9\\",
-				"C:\\Users\\joseg\\Desktop\\MCCD\\Real-World Data\\Gas Sensor Array Drift Data\\"
+				"C:\\Users\\joseg\\Desktop\\MCCD\\Real-World Data\\Gas Sensor Array Drift Data\\",
+				"C:\\Users\\joseg\\Desktop\\MCCD\\Real-World Data\\"
 		};
+
+		String ResultsFolder = "C:\\Users\\joseg\\Desktop\\MCCD";
+
+		String[] folderToWrite = new String[]{
+				"IR3to7\\",
+				"IR1to9\\",
+				"Gas Sensor Array Drift Data\\",
+				"Covtype\\",
+				"Connect4\\"
+
+		};
+
 		String[] allFiles = new String[]{
+
+
+
 				"Gaussian_12Min12Maj_Severity0.5_ir3to7_Random.arff",
+
 				"Gaussian_12Min12Maj_Severity1_ir3to7_Random.arff",
 				"Gaussian_12Min12Maj_Severity0.3_ir3to7_Random.arff",
 				"Gaussian_12Min12Maj_Severity0.5_ir1to9_Random.arff",
 				"Gaussian_12Min12Maj_Severity1_ir1to9_Random.arff",
 				"Gaussian_12Min12Maj_Severity0.1_ir1to9_Random.arff",
-				"batches1-4_8-10.arff",
-				"batches.arff"
+				//"batches1-2.arff",
+				//"covtype.arff"
+				//"connect-4.arff"
+				//"batches.arff"
 		};
 		String[] toWrite = new String[]{
+
 				"_12_12_ir37_sev_0.5.txt",
 				"_12_12_ir37_sev_1.txt",
 				"_12_12_ir37_sev_0.3.txt",
 				"_12_12_ir19_sev_0.5.txt",
 				"_12_12_ir19_sev_1.txt",
 				"_12_12_ir19_sev_0.1.txt",
-				"_batches1-4_8-10.txt",
-				"_batches.txt"
+				//"_batches1-2.txt",
+				//"_batches.txt"
+				//"_covtype.txt"
+				//"_connect-4.txt"
 		};
-		int[] fileFolderIndex = new int[]{0,0,0,1,1,1,2,2};
+		int[] fileFolderIndex = new int[]{0,0,0,1,1,1,2,3,3};
 
-		String[] sampleModes = new String[]{//"MOOB",
-				//"MUOB",
-				//"HYBRID",
+		String[] sampleModes = new String[]{"MOOB",
+				"MUOB",
+				"HYBRID",
 				//"EVERY",
 				"MOOB_delayed",
-				"MUOB_delayed"};
+				"MUOB_delayed"
+		};
+
 
 		int numOfFiles = allFiles.length;
 		int numOfModes = sampleModes.length;
@@ -113,11 +139,12 @@ public class Main {
 
 			for (int xax = 0; xax < numOfFiles; xax++) {
 				String datafile = folder[fileFolderIndex[xax]] + allFiles[xax];
+				System.out.println(datafile);
 				for (int xaxa = 0; xaxa < numOfModes; xaxa++) {
 					String sampleMode = sampleModes[xaxa];
 
-					String resultfile = folder[fileFolderIndex[xax]] + "Results\\windowBasedClassPerc\\window" + String.valueOf(window_size) + "newhybrid\\" + sampleMode + toWrite[xax];
-
+					String resultfile = ResultsFolder + "\\Results\\window" + String.valueOf(window_size) + "\\" + sampleMode + toWrite[xax];
+					String resultfile2 = ResultsFolder + "\\Results\\window" + String.valueOf(window_size) + "\\"+"whole_runs" + sampleMode + toWrite[xax];
 					//ins: just for setting data properties and initialising performance arrays
 
 					DataSource source = new DataSource(datafile);
@@ -159,11 +186,7 @@ public class Main {
 						Timestamp timestamp = new Timestamp(System.currentTimeMillis());
 
 						lastEntryNum = 0;
-						System.out.println("Window Size - " +String.valueOf(window_size));
-						System.out.println("File - "+datafile);
-						System.out.println("Method - "+sampleMode);
-						System.out.println("Run " + (run + 1));
-						System.out.println(sdf3.format(timestamp));
+
 
 						// Obtain data stream
 						ArffFileStream data = new ArffFileStream(datafile, -1);
@@ -212,34 +235,48 @@ public class Main {
 
 						int end_of_last_window = 0;
 						int occuredDrifts = 0;
-
+						int currentI = 0;
 						int justChanged = 0; // variable for testing purposes
 						// online training loop: test the current instance first, then used to update the learner (prequential)
 						while (data.hasMoreInstances()) {
-
+							System.out.println("Window Size - " +String.valueOf(window_size));
+							System.out.println("File - "+datafile);
+							System.out.println("Method - "+sampleMode);
+							System.out.println("Run " + (run + 1));
+							System.out.println(sdf3.format(timestamp));
+							System.out.println("Current Index "+currentI);
+							currentI=currentI+1;
 							Instance trainInst = data.nextInstance();
 
-							double[] prediction = model.getVotesForInstance(trainInst);
+
+
+							double[] prediction = model2.getVotesForInstance(trainInst);
+							pmauc2.addResult(trainInst, prediction);
+							prediction = model.getVotesForInstance(trainInst);
+							pmauc1.addResult(trainInst, prediction);
+
+
+
 							if (end_of_last_window > window_size) {
 								lastEntryNum++;
 								int last_window_choice = 0;
 								if (sampleMode.equals("HYBRID")) {
 									last_window_choice = get_last_window_choice(end_of_last_window, window_size, usedMetric, run);
+
+									//last_window_choice = get_last_window_choice_b(end_of_last_window, window_size, run);
 								} else if (lastEntryNum > window_size) {
 									last_window_choice = get_last_window_choice(lastEntryNum, window_size, usedMetric, run);
+									//last_window_choice = get_last_window_choice_b(lastEntryNum, window_size, run);
 								}
 								if (last_window_choice == 2 && (sampleMode.equals("HYBRID") || sampleMode.equals("EVERY")))
 									prediction = model2.getVotesForInstance(trainInst);
 							}
+
 							evaluator.addResult(trainInst, prediction);
 							pmauc.addResult(trainInst, prediction);
 							predictedLabel = Utils.maxIndex(prediction);
 
-							prediction = model.getVotesForInstance(trainInst);
-							pmauc1.addResult(trainInst, prediction);
 
-							prediction = model2.getVotesForInstance(trainInst);
-							pmauc2.addResult(trainInst, prediction);
 
 							realLabel = (int) trainInst.classValue();
 							numInstances[realLabel]++;
@@ -255,6 +292,9 @@ public class Main {
 							updateClassPercentage(realLabel, numSamples_Total, sizedecayfactor);
 							if (numSamples_Total < window_size)
 								System.arraycopy(classPercentage[numSamples_Total - 1], 0, classPercentageAtWindow, 0, numClasses);
+							if (numSamples_Total > window_size && (sampleMode.equals("MOOB_delayed") || sampleMode.equals("MUOB_delayed") || sampleMode.equals("HYBRID")) ){
+								trainInst.setClassValue(predictedLabel);
+							}
 
 
 							// train online model
@@ -359,12 +399,12 @@ public class Main {
 									default:
 										break;
 								}
-								if (numSamples_Total > 2 * window_size)
-									System.arraycopy(classPercentage[numSamples_Total - window_size - 1], 0, classPercentageAtWindow, 0, numClasses);
+								//if (numSamples_Total > 2 * window_size)
+								//	System.arraycopy(classPercentage[numSamples_Total - window_size - 1], 0, classPercentageAtWindow, 0, numClasses);
 								if (sampleMode.equals("HYBRID")) {
-									if ((numSamples_Total - end_of_last_window) % window_size == 0) {
+									if ((numSamples_Total - end_of_last_window) % window_size == 0 && numSamples_Total>window_size) {
 										end_of_last_window = numSamples_Total;
-
+										System.arraycopy(classPercentage[numSamples_Total - window_size - 1], 0, classPercentageAtWindow, 0, numClasses);
 									}
 									if (phtdrifter.numDrift > occuredDrifts) {
 										occuredDrifts = phtdrifter.numDrift;
@@ -393,10 +433,16 @@ public class Main {
 
 					System.out.println(average(numDrifts));
 					//printPerformance(resultfile,numTimeStep);
-					printPerformancePerRun(resultfile, numRun, lastEntryNum, window_size);
+					printPerformancePerRun(resultfile, numRun, lastEntryNum, 200);
+
+					printPerformanceDuringRun(resultfile2, numRun, lastEntryNum, 200);
 				}
 			}
 		}
+		Timestamp end_time = new Timestamp(System.currentTimeMillis());
+
+
+		System.out.println((end_time.getTime()-start_time.getTime())/60000);
 	}
 
 	/**Initialize Online Bagging*/
@@ -408,7 +454,8 @@ public class Main {
 		//model.baseLearnerOption.setValueViaCLIString("trees.HoeffdingTree");//default of OzaBag
 
 		model.ensembleSizeOption.setValue(11);
-		model.randomSeedOption.setValue(seed);//model.randomSeedOption.setValue((int)System.currentTimeMillis());
+		model.randomSeedOption.setValue(seed);
+		//model.randomSeedOption.setValue((int)System.currentTimeMillis());
 		if(model.baseLearnerOption.getValueAsCLIString().equals("src.OnlineMultilayerPerceptron")){
 			model.firtInst = fistInst;
 		}
@@ -678,6 +725,81 @@ public class Main {
 		writer.close();
 	}
 
+	public static void printPerformanceDuringRun(String filename, int numRun,int lastEntry,int window_size) throws IOException {
+		BufferedWriter writer = new BufferedWriter(new FileWriter(filename));
+
+		writer.append("EWAUC at each instance in each run \n");
+		for(int i = 0; i < numRun; i++) {
+			for(int j=0;j<lastEntry;j++) {
+				if(j>0)
+					writer.append(",");
+				writer.append(String.valueOf(EWAUC_window[j][i]));
+			}
+			writer.append("\n");
+		}
+
+		writer.close();
+	}
+
+	public static void printPerformancePerRunWindowAfterDrift(String filename, int numRun,int lastEntry,int window_size, int [][] driftLocations,int [] numDrifts) throws IOException {
+
+		int maxim=-1;
+		for (int j = 0; j < numDrifts.length; j++) {
+			if(numDrifts[j]>maxim)
+				maxim=numDrifts[j];
+		}
+		System.out.println("COME ON \n");
+		System.out.println(maxim);
+		BufferedWriter writer = new BufferedWriter(new FileWriter(filename));
+
+		/*Print out performance into the result file*/
+		double[][] lastbatch_pmauc = new double[numRun][10000];
+		double[][] lastbatch_wauc = new double[numRun][10000];
+		double[][] lastbatch_ewauc = new double[numRun][10000];
+		double[][] lastbatch_gm = new double[numRun][10000];
+		for(int i = 0; i < numRun; i++) {
+			for (int j = 0; j < 10000; j++) {
+				lastbatch_pmauc[i][j]=-1;
+				lastbatch_ewauc[i][j]=-1;
+				lastbatch_wauc[i][j]=-1;
+				lastbatch_gm[i][j]=-1;
+			}
+		}
+
+		writer.append("Mean performance on the last batch at each run \n");
+		for (int j = 0; j < maxim; j++) {
+			writer.append("PMAUC_"+Integer.toString(maxim)+", WAUC_"+Integer.toString(maxim)+", EWAUC_"+Integer.toString(maxim)+", G-mean_"+Integer.toString(maxim)+", ");
+		}
+		writer.append("\n");
+		for(int i = 0; i < numRun; i++) {
+			for (int j = 0; j < maxim; j++) {
+
+				if(driftLocations[i][j]!=-1) {
+
+					int last = driftLocations[i][j] + window_size;
+					if (last > lastEntry)
+						last = lastEntry;
+					//lastbatch_pmauc[i] = row_average(PMAUC_window, 3600, 5288, i);
+					//lastbatch_wauc[i] = row_average(WAUC_window, 3600, 5288, i);
+					//lastbatch_ewauc[i] = row_average(EWAUC_window, 3600, 5288, i);
+					//lastbatch_gm[i] = row_average(gmean_window, 3600, 5288, i);
+					lastbatch_pmauc[i][j] = row_average(PMAUC_window, driftLocations[i][j] + 1, last, i);
+					lastbatch_pmauc[i][j] = row_average(PMAUC_window, driftLocations[i][j] + 1, last, i);
+					lastbatch_wauc[i][j] = row_average(WAUC_window, driftLocations[i][j] + 1, last, i);
+					lastbatch_ewauc[i][j] = row_average(EWAUC_window, driftLocations[i][j] + 1, last, i);
+					lastbatch_gm[i][j] = row_average(gmean_window, driftLocations[i][j] + 1, last, i);
+				}
+				writer.append(lastbatch_pmauc[i][j] + ", " + lastbatch_wauc[i][j] + ", " + lastbatch_ewauc[i][j] + ", " + lastbatch_gm[i][j] + ", "
+//					Utils.mean(classRecall_window[i][0]) + ", " + Utils.mean(classRecall_window[i][1]) + ", "+
+//					Utils.mean(classRecall_window[i][2]) + ", "+ Utils.mean(classRecall_window[i][3])
+						);
+			}
+			writer.append("\n");
+		}
+
+		writer.close();
+	}
+
 	public static int get_last_window_choice(int endOfWindow,int window_size,int usedMetric,int i) throws IOException {
 
 		/*Gets performance from last window*/
@@ -686,12 +808,12 @@ public class Main {
 
 		switch(usedMetric) {
 			case 1:
-				result1 = row_average(PMAUC_window1, endOfWindow - window_size, endOfWindow, i);
-				result2 = row_average(PMAUC_window2, endOfWindow - window_size, endOfWindow, i);
+				result1 = row_average(PMAUC_window1, endOfWindow, endOfWindow, i);
+				result2 = row_average(PMAUC_window2, endOfWindow, endOfWindow, i);
 				break;
 			case 2:
-				result1 = row_average(EWAUC_window1, endOfWindow - window_size, endOfWindow, i);
-				result2 = row_average(EWAUC_window2, endOfWindow - window_size, endOfWindow, i);
+				result1 = row_average(EWAUC_window1, endOfWindow, endOfWindow, i);
+				result2 = row_average(EWAUC_window2, endOfWindow, endOfWindow, i);
 				break;
 			case 3:
 				result1 = row_average(WAUC_window1, endOfWindow - window_size, endOfWindow, i);
@@ -710,10 +832,48 @@ public class Main {
 		return 2;
 	}
 
+	public static int get_last_window_choice_b(int endOfWindow,int window_size,int i) throws IOException {
+
+		/*Gets performance from last window*/
+		double result1 = 0.00;
+		double result2 = 0.00;
+		double result3 = 0.00;
+		double result4 = 0.00;
+		double result5 = 0.00;
+		double result6 = 0.00;
+		double result7 = 0.00;
+		double result8 = 0.00;
+		int windo=window_size;
+		if(window_size==endOfWindow)
+			windo=endOfWindow/2;
+				result1 = row_average(PMAUC_window1, endOfWindow-window_size, endOfWindow, i);
+				result2 = row_average(PMAUC_window1, endOfWindow-windo, endOfWindow-window_size, i);
+				result3 = row_average(PMAUC_window2, endOfWindow-window_size, endOfWindow, i);
+				result4 = row_average(PMAUC_window2, endOfWindow-windo, endOfWindow-window_size, i);
+
+				result5 = row_average(EWAUC_window1, endOfWindow-window_size, endOfWindow, i);
+				result6 = row_average(EWAUC_window1, endOfWindow-windo, endOfWindow-window_size, i);
+				result7 = row_average(EWAUC_window2, endOfWindow-window_size, endOfWindow, i);
+				result8 = row_average(EWAUC_window2, endOfWindow-windo, endOfWindow-window_size, i);
+
+		if(result1>result3 && result5>result7)
+			return 1;
+		else if(result1<result3 && result5<result7){
+			return 2;
+		}else {
+			if(result1-result2 + result5-result6 > result3-result4+result7-result8)
+				return 1;
+			else
+				return 2;
+		}
+
+	}
+
 	/**Apply PHT (Page-Hinckley Test) monitoring the drop of AUC-based metrics or G-mean */
 	  public static int applyPHT(OzaBag model, PHT detector, AUCClassificationPerformanceEvaluator_mclass metric, Instance currentIns, double val, int time){ 
 	    int isDrift = 0;
 	    isDrift = detector.input_PAUC(val);
+		System.out.println("PHT " + Integer.toString(isDrift));
 	    if(isDrift==1){
 	      detector.storedInstances.add(currentIns);
 	      detector.store = true;
